@@ -1,19 +1,34 @@
 <template>
   <div class="gif-background">
-    <div class="container text-white p-4 rounded-4">
-      <h1 class="text-center mb-5 mt-5 bg-transport">Pokémon list</h1>
+    <div class="container">
+      <h1 class="card d-flex text-center shadow rounded-5 p-3 bg-dark bg-opacity-50 text-white">Pokémon list</h1>
 
-      <nav class="navbar navbar-light bg-light mb-5 text-center">
+      <!-- ปุ่ม Go to Battle อยู่ใต้หัวข้อ Pokémon list -->
+      <div class="text-center mb-4">
+        <button class="btn btn-danger" @click="goToBattle">
+          Go to Battle
+        </button>
+      </div>
+
+      <nav class="navbar bg-light mb-5 text-center rounded">
         <div class="container">
-          <form class="d-flex w-100">
+          <form class="d-flex w-100" @submit.prevent="handleSearch">
             <input
+              v-model="searchQuery"
               class="form-control me-2"
               type="search"
-              placeholder="Search"
+              placeholder="Search by name or type (e.g. fire, water, grass)..."
               aria-label="Search"
+              @input="handleSearchInput"
             />
-            <button class="btn btn-outline-success" type="submit">
-              Search
+            <button class="btn btn-outline-danger" type="submit">Search</button>
+            <button
+              v-if="searchQuery"
+              class="btn btn-outline-secondary ms-2"
+              type="button"
+              @click="clearSearch"
+            >
+              Clear
             </button>
           </form>
         </div>
@@ -21,17 +36,43 @@
 
       <!-- Grid layout -->
       <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-6 g-4">
-        <div v-for="poke in pokemonList" :key="poke.id" class="col">
-          <div class="card h-100 rounded-4 shadow text-center">
+        <div v-for="poke in filteredPokemonList" :key="poke.id" class="col">
+          <div
+            class="card h-100 rounded-4 shadow text-center pokemon-card"
+            style="cursor: pointer"
+          >
             <img
               :src="poke.sprites.front_default"
               class="card-img-top rounded-4 bg-light p-3"
               alt="Pokemon image"
+              @click="showPokemonDetail(poke)"
             />
             <div class="card-body">
               <h5 class="card-title text-capitalize">{{ poke.name }}</h5>
+              <div class="text-center my-4">
+                <button
+                  class="btn btn-dark"
+                  @click.stop="toggleSelectPokemon(poke)"
+                >
+                  {{ isSelected(poke) ? "Deselect" : "Select" }}
+                </button>
+              </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- No results message -->
+      <div
+        v-if="searchQuery && filteredPokemonList.length === 0"
+        class="text-center mt-5"
+      >
+        <div class="alert alert-info">
+          <h5>Not found 404</h5>
+          <p>
+            Try searching by name or category, such as "fire", "water", "grass",
+            or press the Clear button to see all
+          </p>
         </div>
       </div>
 
@@ -56,34 +97,55 @@
           width="80"
           height="80"
         />
-        <p>No ore Pokémon Character</p>
+        <p>No more Pokémon Character</p>
       </div>
+    </div>
+
+    <!-- Pokemon Detail Modal -->
+    <div
+      class="modal fade"
+      id="pokemonModal"
+      tabindex="-1"
+      aria-labelledby="pokemonModalLabel"
+      aria-hidden="true"
+      ref="pokemonModal"
+    >
+      <!-- Modal content ตามโค้ดเดิม (ยังไม่ได้เปลี่ยนแปลง) -->
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, computed } from "vue";
-import { toggleFavorite, isFavorited, favorites } from "../stores/favorites";
-
-// async function fetchPokemon() {
-//   try {
-//     const response = await fetch(
-//       `https://pokeapi.co/api/v2/pokemon/${pokemonId.value}`
-//     );
-//     const data = await response.json();
-//     pokemon.value = data;
-//   } catch (error) {
-//     console.error("Error fetching Pokémon:", error);
-//   }
-// }
+import { useRouter } from "vue-router";
+import { store } from "../stores/store";
 
 const pokemonList = ref([]);
+const searchQuery = ref("");
 const offset = ref(0);
 const limit = 100;
 const loading = ref(false);
 const hasMore = ref(true);
+const selectedPokemon = ref(null);
+const pokemonModal = ref(null);
 
+const router = useRouter();
+
+// Filtered list based on searchQuery
+const filteredPokemonList = computed(() => {
+  if (!searchQuery.value) return pokemonList.value;
+  const query = searchQuery.value.toLowerCase();
+
+  return pokemonList.value.filter((pokemon) => {
+    const nameMatch = pokemon.name.toLowerCase().includes(query);
+    const typeMatch = pokemon.types.some((type) =>
+      type.type.name.toLowerCase().includes(query)
+    );
+    return nameMatch || typeMatch;
+  });
+});
+
+// Fetch more Pokémon from API
 async function fetchMorePokemon() {
   if (loading.value || !hasMore.value) return;
 
@@ -98,7 +160,6 @@ async function fetchMorePokemon() {
       fetch(p.url).then((res) => res.json())
     );
     const detailedData = await Promise.all(promises);
-
     pokemonList.value.push(...detailedData);
 
     offset.value += limit;
@@ -110,12 +171,58 @@ async function fetchMorePokemon() {
   }
 }
 
-onMounted(() => {
-  fetchMorePokemon();
-});
+// Modal detail show/hide functions
+function showPokemonDetail(pokemon) {
+  selectedPokemon.value = pokemon;
+  if (pokemonModal.value) {
+    const modalInstance = bootstrap.Modal.getOrCreateInstance(pokemonModal.value);
+    modalInstance.show();
+  }
+}
+function closeModal() {
+  if (pokemonModal.value) {
+    const modalInstance = bootstrap.Modal.getOrCreateInstance(pokemonModal.value);
+    modalInstance.hide();
+  }
+}
 
-// IntersectionObserver สำหรับเลื่อนถึงล่างสุด
+// Search handlers
+function handleSearch() {}
+function handleSearchInput() {}
+function clearSearch() {
+  searchQuery.value = "";
+}
+
+// Toggle select Pokémon (เพิ่ม/ลบใน store.selectedPokemons)
+function toggleSelectPokemon(pokemon) {
+  const index = store.selectedPokemons.findIndex((p) => p.id === pokemon.id);
+  if (index === -1) {
+    store.selectedPokemons.push(pokemon);
+  } else {
+    store.selectedPokemons.splice(index, 1);
+  }
+}
+
+// เช็คว่า Pokémon ตัวนี้ถูกเลือกอยู่หรือไม่
+function isSelected(pokemon) {
+  return store.selectedPokemons.some((p) => p.id === pokemon.id);
+}
+
+// ไปหน้า Battle และส่ง selectedPokemons ผ่าน query string
+function goToBattle() {
+  if (store.selectedPokemons.length === 0) {
+    alert("Please select at least 1 Pokémon to battle.");
+    return;
+  }
+  router.push({
+    name: "Home", // เปลี่ยนเป็นชื่อ route ที่ต้องการ เช่น "Home"
+    query: { selected: store.selectedPokemons.map((p) => p.id).join(",") },
+  });
+}
+
+// Infinite scroll observer
 const bottomObserver = ref(null);
+const bottomObserverEl = ref(null);
 const observeBottom = (el) => {
   if (!el) return;
   const observer = new IntersectionObserver((entries) => {
@@ -127,8 +234,8 @@ const observeBottom = (el) => {
   bottomObserver.value = el;
 };
 
-const bottomObserverEl = ref(null);
 onMounted(() => {
+  fetchMorePokemon();
   observeBottom(bottomObserverEl.value);
 });
 </script>
@@ -163,24 +270,47 @@ button:hover i {
   flex-wrap: wrap;
   gap: 1rem;
 }
-/* .pokemon-card {
-  border: 1px solid #ddd;
-  padding: 1rem;
-  width: 150px;
-  text-align: center;
-} */
+
+.pokemon-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.pokemon-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+}
+
 /* พื้นหลัง GIF ที่ container */
 .gif-background {
   background-image: url("https://img.itch.zone/aW1nLzEwNDcxMzQ0LmdpZg==/original/T3LMCL.gif");
   background-size: cover;
   background-repeat: no-repeat;
   background-position: center;
+  background-attachment: fixed;
   position: relative;
   overflow: hidden;
+  min-height: 100vh;
 }
 
 .gif-background > * {
   border-radius: 0.9rem;
   padding: 1rem;
+}
+
+/* Custom colors for types */
+.bg-purple {
+  background-color: #8b5cf6 !important;
+}
+
+.bg-pink {
+  background-color: #ec4899 !important;
+}
+
+.bg-lime {
+  background-color: #84cc16 !important;
+}
+
+.bg-brown {
+  background-color: #a3804a !important;
 }
 </style>
