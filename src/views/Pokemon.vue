@@ -110,7 +110,7 @@
       aria-hidden="true"
       ref="pokemonModal"
     >
-      <!-- Modal content ตามโค้ดเดิม (ยังไม่ได้เปลี่ยนแปลง) -->
+
     </div>
   </div>
 </template>
@@ -214,6 +214,7 @@ function goToBattle() {
     alert("Please select at least 1 Pokémon to battle.");
     return;
   }
+
   router.push({
     name: "Home", // เปลี่ยนเป็นชื่อ route ที่ต้องการ เช่น "Home"
     query: { selected: store.selectedPokemons.map((p) => p.id).join(",") },

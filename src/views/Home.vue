@@ -185,32 +185,53 @@
 
     <!-- รวมส่วน Selected Pokémon for Battle -->
 
-    <div class="container">
-      <div class="d-flex justify-content-center">
-        <div class="card shadow rounded-5 p-3 bg-dark bg-opacity-50 text-white">
-          <h2 class="text-center m-0">Let's Start Battle 🔥</h2>
+    <div class="row">
+      <div class="col-12 d-flex justify-content-center">
+        <div
+          class="card shadow rounded-5 p-3 bg-danger bg-opacity-75 text-white"
+        >
+          <h2 class="text-center m-0">Battle Wars</h2>
         </div>
       </div>
-      <div class="row">
+
+      <!-- ปุ่ม Battle แยกออกมาอยู่บนสุด -->
+      <div class="row mt-3 mb-4" v-if="store.selectedPokemons.length > 0">
+        <div class="col-12 d-flex justify-content-center">
+          <button class="btn battle-btn" @click="startBattle()">
+            ⚔️ Start Battle ⚔️
+          </button>
+        </div>
+      </div>
+
+      <!-- แสดงค่าเฉลี่ย stats -->
+      <div class="row mb-5" v-if="store.selectedPokemons.length > 0">
+        <div class="col-12 d-flex justify-content-center">
+          <div class="bg-light p-3 rounded shadow">
+            <h5 class="text-center">Average Stats</h5>
+            <ul class="list-group list-group-flush">
+              <li
+                class="list-group-item d-flex justify-content-between"
+                v-for="(value, key) in averageStats"
+                :key="key"
+              >
+                <span class="text-capitalize">{{ key }}</span>
+                <span>{{ value.toFixed(2) }}</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="!store.selectedPokemons.length" class="row">
         <div class="d-flex justify-content-center">
           <div
             class="card shadow rounded-5 p-3 bg-dark bg-opacity-50 text-white mt-3"
           >
-            <div
-              v-if="store.selectedPokemons.length === 0"
-              class="text-center m-0"
-            >
-              No Pokémon selected
-            </div>
+            <div class="empty-state">No Pokémon selected</div>
           </div>
         </div>
       </div>
-      <transition-group
-        v-elses
-        name="fade-slide"
-        tag="div"
-        class="row justify-content-center"
-      >
+      <transition-group name="fade-slide" tag="div" class="row">
         <div
           v-for="poke in store.selectedPokemons"
           :key="poke.id"
@@ -246,12 +267,12 @@
               </div>
             </div>
 
-            <div class="d-flex justify-content-between mt-4">
+            <div class="d-flex justify-content-center mt-4">
               <button
                 class="btn btn-outline-danger btn-sm"
                 @click="removeFromBattle(poke.id)"
               >
-                delete
+                Remove
               </button>
             </div>
           </div>
@@ -266,7 +287,7 @@
         class="modal d-block bg-dark bg-opacity-75"
         style="z-index: 1050"
       >
-        <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
           <div class="modal-content p-4 text-center">
             <button
               type="button"
@@ -275,45 +296,76 @@
               @click="closeBattleModal"
             ></button>
 
-            <img
-              :src="battlePokemon?.sprites.front_default"
-              :alt="battlePokemon?.name"
-              class="mx-auto"
-              style="height: 120px"
-            />
-            <h4 class="mt-3 text-capitalize">{{ battlePokemon?.name }}</h4>
+            <h3 class="mb-4">Battle Results</h3>
 
-            <h5
-              class="mt-4 fw-bold"
-              :class="battleResult === 'win' ? 'text-success' : 'text-danger'"
-            >
-              {{ battleResult === "win" ? "You Win!" : "You Lose!" }}
-            </h5>
+            <div class="battle-winner">
+              <div
+                class="winner-badge bg-success text-white d-inline-block px-3 py-1 rounded-pill mb-3"
+              >
+                Winner
+              </div>
 
-            <button class="btn btn-secondary mt-3" @click="closeBattleModal">
-              ปิด
+              <div class="row justify-content-center">
+                <div class="col-md-6">
+                  <div class="card bg-light">
+                    <img
+                      :src="battleWinner?.sprites.front_default"
+                      :alt="battleWinner?.name"
+                      class="mx-auto"
+                      style="height: 180px"
+                    />
+                    <div class="card-body">
+                      <h4 class="mt-2 text-capitalize">
+                        {{ battleWinner?.name }}
+                      </h4>
+
+                      <div class="mt-3">
+                        <div
+                          v-for="stat in battleWinner?.stats"
+                          :key="stat.stat.name"
+                          class="mb-2"
+                        >
+                          <label
+                            class="form-label d-flex justify-content-between"
+                          >
+                            <span class="text-capitalize">{{
+                              stat.stat.name
+                            }}</span>
+                            <span>{{ stat.base_stat }}</span>
+                          </label>
+                          <div class="progress">
+                            <div
+                              class="progress-bar"
+                              role="progressbar"
+                              :style="{ width: stat.base_stat + '%' }"
+                              :class="getStatColor(stat.base_stat)"
+                            ></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <button class="btn btn-primary mt-4 px-4" @click="closeBattleModal">
+              Close
             </button>
           </div>
         </div>
       </div>
     </transition>
-    <div>
-                      <button
-                class="btn btn-outline-success btn-sm"
-                @click="startBattle(poke)"
-              >
-                Battle
-              </button>
-              </div>
   </div>
 </template>
 
 <script setup>
-import { ref, watch, onMounted, computed } from "vue";
+import { ref, watch, onMounted, computed, nextTick } from "vue";
 import VPagination from "@hennge/vue3-pagination";
 import "@hennge/vue3-pagination/dist/vue3-pagination.css";
 import { favorites } from "../stores/favorites";
 import { store } from "../stores/store";
+import { useRoute } from "vue-router";
 
 const firstName = ref("");
 const lastName = ref("");
@@ -322,6 +374,8 @@ const items = ref([]);
 const editIndex = ref(null);
 const currentPage = ref(1);
 const perPage = 3;
+const route = useRoute();
+const selectedPokemonIds = ref([]);
 
 function increase() {
   number.value++;
@@ -369,12 +423,113 @@ function editItem(index) {
   editIndex.value = index;
 }
 
-onMounted(() => {
+// ฟังก์ชั่นสำหรับบันทึก selectedPokemons ลงใน localStorage
+function saveSelectedPokemons() {
+  try {
+    // เก็บเฉพาะ ID เพื่อลดขนาดข้อมูลและป้องกันปัญหา circular reference
+    const pokemonIds = store.selectedPokemons.map((pokemon) => pokemon.id);
+    localStorage.setItem("selected-pokemon-ids", JSON.stringify(pokemonIds));
+    console.log("Saved pokemon ids to localStorage:", pokemonIds);
+  } catch (error) {
+    console.error("Error saving selected pokemons:", error);
+  }
+}
+
+// ฟังก์ชั่นสำหรับโหลด selectedPokemons จาก localStorage
+function loadSelectedPokemons() {
+  try {
+    const savedIds = localStorage.getItem("selected-pokemon-ids");
+    if (savedIds) {
+      const pokemonIds = JSON.parse(savedIds);
+      console.log("Loaded pokemon ids from localStorage:", pokemonIds);
+
+      // ตรวจสอบว่ามี allPokemons แล้วหรือไม่
+      if (store.allPokemons && store.allPokemons.length > 0) {
+        restoreSelectedPokemons(pokemonIds);
+      } else {
+        // ถ้ายังไม่มี allPokemons ให้เก็บ ID ไว้ก่อน
+        selectedPokemonIds.value = pokemonIds;
+        console.log("Waiting for allPokemons to be loaded...");
+      }
+    }
+  } catch (error) {
+    console.error("Error loading selected pokemons:", error);
+  }
+}
+
+// ฟังก์ชั่นสำหรับเรียกคืน pokemons จาก ID ที่บันทึกไว้
+function restoreSelectedPokemons(pokemonIds) {
+  console.log("Restoring pokemons from ids:", pokemonIds);
+  console.log("Available allPokemons:", store.allPokemons.length);
+
+  // เคลียร์ค่าเดิมก่อน
+  store.selectedPokemons = [];
+
+  // หา pokemon จาก ID และเพิ่มเข้าไปใน selectedPokemons
+  pokemonIds.forEach((id) => {
+    const pokemon = store.allPokemons.find((p) => p.id === id);
+    if (pokemon) {
+      store.addPokemon(pokemon);
+    }
+  });
+
+  console.log("Restored selectedPokemons:", store.selectedPokemons.length);
+}
+
+onMounted(async () => {
   const saved = localStorage.getItem("my-items");
   if (saved) {
     items.value = JSON.parse(saved);
   }
+
+  loadSelectedPokemons();
+
+  if (route.query.selected) {
+    selectedPokemonIds.value = route.query.selected
+      .split(",")
+      .map((id) => Number(id));
+    console.log("Found selected pokemon ids in URL:", selectedPokemonIds.value);
+  }
+
+  // ตรวจสอบและโหลด allPokemons ถ้ายังไม่มี
+  if (!store.allPokemons || store.allPokemons.length === 0) {
+    await fetchAllPokemons(); // เรียกจาก store
+  }
+
+  if (selectedPokemonIds.value.length > 0) {
+    restoreSelectedPokemons(selectedPokemonIds.value);
+  }
 });
+
+
+// เพิ่ม watcher สำหรับ allPokemons เพื่อเรียกคืนข้อมูล selectedPokemons เมื่อโหลดเสร็จ
+watch(
+  () => store.allPokemons,
+  (newAllPokemons) => {
+    if (
+      newAllPokemons &&
+      newAllPokemons.length > 0 &&
+      selectedPokemonIds.value.length > 0
+    ) {
+      console.log("allPokemons loaded, restoring selected pokemons...");
+      nextTick(() => {
+        restoreSelectedPokemons(selectedPokemonIds.value);
+      });
+    }
+  },
+  { deep: false }
+);
+
+// เพิ่ม watcher สำหรับ selectedPokemons เพื่อบันทึกลงใน localStorage ทุกครั้งที่มีการเปลี่ยนแปลง
+watch(
+  () => store.selectedPokemons,
+  () => {
+    nextTick(() => {
+      saveSelectedPokemons();
+    });
+  },
+  { deep: true }
+);
 
 watch(
   items,
@@ -409,68 +564,60 @@ function removeFromBattle(pokeId) {
   store.selectedPokemons = store.selectedPokemons.filter(
     (p) => p.id !== pokeId
   );
+  // บันทึกการเปลี่ยนแปลงทันที
+  saveSelectedPokemons();
 }
 
 // battle modal state
 const isBattleModalOpen = ref(false);
-const battleResult = ref(null);
-const battlePokemon = ref(null);
+const battleWinner = ref(null);
 
-function startBattle(pokemon) {
-  // สุ่มผลลัพธ์
-  const result = Math.random() > 0.5 ? "win" : "lose";
-  battleResult.value = result;
-  battlePokemon.value = pokemon;
+// ฟังก์ชั่นเริ่มการต่อสู้และเลือกผู้ชนะ
+function startBattle() {
+  // ตรวจสอบว่ามีโปเกมอนอย่างน้อย 1 ตัว
+  if (store.selectedPokemons.length === 0) {
+    alert("Please select at least 1 Pokémon to battle");
+    return;
+  }
+  let winner = null;
+  let highestTotalStat = -Infinity;
+
+  store.selectedPokemons.forEach((pokemon) => {
+    const total = pokemon.stats.reduce((sum, s) => sum + s.base_stat, 0);
+    if (total > highestTotalStat) {
+      highestTotalStat = total;
+      winner = pokemon;
+    }
+  });
+  console.log( store.selectedPokemons.length,"selectedPokemonIds")
+
+  battleWinner.value = winner;
   isBattleModalOpen.value = true;
 }
 
 function closeBattleModal() {
   isBattleModalOpen.value = false;
+  battleWinner.value = null;
 }
 
-import { useRoute } from "vue-router";
+// คำนวณค่าเฉลี่ยของ stats แต่ละตัว เช่น hp, attack, defense ฯลฯ
+const averageStats = computed(() => {
+  const result = {};
+  const pokemons = store.selectedPokemons;
 
-const route = useRoute();
-const selectedPokemonIds = ref([]);
+  if (pokemons.length === 0) return result;
 
-onMounted(() => {
-  if (route.query.selected) {
-    selectedPokemonIds.value = route.query.selected
-      .split(",")
-      .map((id) => Number(id));
-    // ใช้ selectedPokemonIds นี้ดึงข้อมูล Pokémon มาแสดง หรือดึงจาก store ก็ได้
-    console.log("Selected Pokémon IDs:", selectedPokemonIds.value);
-  }
-});
+  const statNames = pokemons[0].stats.map((s) => s.stat.name);
+  statNames.forEach((name) => {
+    let sum = 0;
+    pokemons.forEach((p) => {
+      const stat = p.stats.find((s) => s.stat.name === name);
+      sum += stat ? stat.base_stat : 0;
+    });
+    result[name] = sum / pokemons.length;
+  });
 
-onMounted(() => {
-  // โหลดข้อมูลฟอร์มจาก localStorage
-  const saved = localStorage.getItem("my-items");
-  if (saved) {
-    items.value = JSON.parse(saved);
-  }
-
-  // ดึง query string: ?selected=1,4,7,...
-  if (route.query.selected) {
-    selectedPokemonIds.value = route.query.selected
-      .split(",")
-      .map((id) => Number(id));
-
-    // ตรวจสอบว่ามี allPokemons แล้วหรือยัง
-    if (store.allPokemons.length > 0) {
-      const selected = store.allPokemons.filter((poke) =>
-        selectedPokemonIds.value.includes(poke.id)
-      );
-
-      // เคลียร์ของเก่าแล้วเพิ่มใหม่ทั้งหมด
-      store.selectedPokemons = [];
-      selected.forEach((p) => store.addPokemon(p));
-    } else {
-      console.warn(
-        "⚠️ ยังไม่มีข้อมูล allPokemons ใน store – ต้องโหลดก่อนเรียกหน้า Home"
-      );
-    }
-  }
+  return result;
 });
 </script>
 
@@ -525,5 +672,65 @@ onMounted(() => {
 }
 .custom-bg {
   background-color: rgba(48, 48, 48, 0.318); /* สีดำโปร่งใส 75% */
+}
+
+/* เพิ่มสไตล์สำหรับผู้ชนะการต่อสู้ */
+.battle-winner {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.03);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.battle-btn {
+  background: linear-gradient(135deg, #ff1f1f, #ffa41f);
+  color: white;
+  font-size: 1.5rem;
+  font-weight: bold;
+  padding: 0.75rem 3rem;
+  border: none;
+  border-radius: 12px;
+  box-shadow: 0 0 20px rgba(255, 31, 31, 0.6);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.battle-btn::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.2),
+    transparent 70%
+  );
+  transform: translate(-50%, -50%) scale(0);
+  transition: transform 0.5s ease-out;
+  border-radius: 50%;
+  z-index: 0;
+}
+
+.battle-btn:hover::before {
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.battle-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 30px rgba(255, 31, 31, 0.8);
+  cursor: pointer;
 }
 </style>

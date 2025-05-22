@@ -27,3 +27,17 @@ export const store = reactive({
     this.selectedPokemons = this.selectedPokemons.filter((p) => p.id !== id);
   },
 });
+
+async function fetchAllPokemons() {
+  if (store.allPokemons.length === 0) {
+    const res = await fetch('https://pokeapi.co/api/v2/pokemon?limit=151');
+    const data = await res.json();
+    store.allPokemons = data.results.map((p, index) => ({
+      id: index + 1,
+      name: p.name,
+      url: p.url,
+      // preload sprites/stats ถ้าจำเป็น
+    }));
+  }
+}
+
