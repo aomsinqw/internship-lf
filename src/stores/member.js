@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import axios from "axios";
+
 const url =
   "https://backend-f224d-default-rtdb.asia-southeast1.firebasedatabase.app/members.json";
 
@@ -15,42 +16,77 @@ export const useMemberStore = defineStore("member", {
     birthDate: "",
     isActive: "",
     email: "",
+    members: [],
   }),
   actions: {
-    increment() {
-      this.count++;
-    },
     async submitForm() {
-      console.log("name", this.name);
-      console.log("date", this.birthDate);
-      console.log("status", this.isActive);
-      console.log("mail", this.email);
-      console.log("surname", this.surname);
+      try {
+        const qwert = {
+          name: this.name,
+          surname: this.surname,
+          birthDate: this.birthDate,
+          isActive: this.isActive,
+          email: this.email,
+        };
 
+        const headers = {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        };
+
+        const submitRes = await axios.post(url, qwert, headers);
+        console.log("response", submitRes);
+        this.resetForm();
+
+        return true;
+      } catch (err) {
+        console.error("Error submitting:", err);
+        return false;
+      }
+    },
+    async emailIsExist() {
       //
-      validateForm();
-      //
+      const checkUrl = `${url}?orderBy=%22email%22&equalTo=${encodeURIComponent(
+        `"${this.email}"`
+      )}`;
+      const response = await axios.get(checkUrl);
 
-      let headers = {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      };
-
-      let body = {
-        name: this.name,
-        date: this.birthDate,
-        status: this.isActive,
-        email: this.email,
-        surname: this.surname,
-      };
-
-      let response = await axios.post(url, body, headers);
-
-      console.log("response", response);
+      console.log(response.data);
+      if (response.data && Object.keys(response.data).length > 0) {
+        return true;
+      }
+      return false;
+    },
+    resetForm() {
+      this.name = "";
+      this.surname = "";
+      this.birthDate = "";
+      this.isActive = "";
+      this.email = "";
+    },
+    async getMember() {
+      try {
+        const response = await axios.get(url);
+        console.log(response);
+        if (response.data) {
+          this.members = Object.entries(response.data).map(([id, value]) => ({
+            id,
+            ...value,
+          }));
+        }
+      } catch (error) {
+        console.error("Error loading members:", error);
+      }
     },
   },
   getters: {
-    doubleCount: (state) => state.count * 2,
+    usersWithStatus: (state) => {
+      return state.members.map((member) => ({
+        ...member,
+        statusText: member.isActive ? "active" : "inactive",
+        
+      }));
+    },
   },
 });

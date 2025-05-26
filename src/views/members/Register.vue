@@ -33,7 +33,7 @@
       <div class="col-md-3">
         <label for="inputState" class="form-label">Status</label>
         <select id="inputState" class="form-select" v-model="member.isActive">
-          <option selected>Choose</option>
+          <option value="">Choose</option>
           <option value="true">Online</option>
           <option value="false">Offline</option>
         </select>
@@ -52,63 +52,116 @@
 
       <!-- Button -->
       <div class="col-12 mt-5 text-end">
-        <button type="submit" class="btn btn-primary">Sign up</button>
+        <button @click="submitHandler" type="submit" class="btn btn-primary">
+          Sign up
+        </button>
       </div>
     </form>
-  </div>
-  <div>
-    <p>Count: {{ member.count }}</p>
-    <p>Double: {{ member.doubleCount }}</p>
-    <button @click="handleClick">Increment</button>
   </div>
 </template>
 
 <script setup>
 import { ref } from "vue";
-import VueDatePicker from "@vuepic/vue-datepicker";
 import "@vuepic/vue-datepicker/dist/main.css";
 import { useMemberStore } from "../../stores/member";
 import Swal from "sweetalert2";
+import { useRouter } from 'vue-router';
 
 const formRef = ref(null);
 
 const member = useMemberStore();
 
-function handleClick() {
-  member.increment();
+const router = useRouter();
+
+function showMessage(varTitle, varText, varIcon) {
+  Swal.fire({
+    title: varTitle,
+    text: varText,
+    icon: varIcon,
+  });
 }
+
 function isConfirm() {
+  const text = "Please complete all fields before proceeding";
   if (!member.name) {
-    Swal.fire({
-      title: "Name is required",
-      text: "That thing is still around?",
-      icon: "warning",
-    });
-    console.log("name is require");
+    showMessage("name is required", text, "warning");
+    console.log("name is required");
     return 0;
   }
 
+  if (!member.surname) {
+    showMessage("Surname is required", text, "warning");
 
-  console.log("pass")
+    console.log("surname is required");
+    return 0;
+  }
 
+  if (!member.birthDate) {
+    showMessage("Birth Date required", text, "warning");
+    console.log("birth date is required");
+    return 0;
+  }
 
-    Swal.fire({
-      title: "Are you sure?",
-      text: "You won't be able to revert this!",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonColor: "#3085d6",
-      cancelButtonColor: "#d33",
-      confirmButtonText: "Yes!",
-    }).then((result) => {
-      if (result.isConfirmed) {
-  member.submitForm()
-        Swal.fire({
-          title: "Save!",
-          text: "Your information has been saved.",
-          icon: "success",
-        });
+  if (
+    member.isActive === null ||
+    member.isActive === undefined ||
+    member.isActive === ""
+  ) {
+    showMessage("Status is required", text, "warning");
+    console.log("isActive is required");
+    return false;
+  }
+
+  if (!member.email) {
+    showMessage("Email is required", text, "warning");
+    console.log("email is required");
+    return 0;
+  }
+
+  return 1; // All validations passed
+}
+
+// ฟังก์ชันหลักที่ใช้เรียกเวลา submit
+async function submitHandler() {
+  if (!isConfirm()) {
+    return; // ถ้า validation ไม่ผ่าน ให้หยุดที่นี่
+  }
+  console.log("pass");
+  member.getAllMember;
+  const result = await Swal.fire({
+    title: "Are you sure?",
+    text: "You won't be able to revert this!",
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonColor: "#3085d6",
+    cancelButtonColor: "#d33",
+    confirmButtonText: "Yes!",
+  });
+
+  if (result.isConfirmed) {
+    //Confirm
+    console.log("Ok");
+    let emailIsExist = await member.emailIsExist();
+    console.log("eiei", emailIsExist);
+    if (emailIsExist) {
+      Swal.fire("Duplicate Email", "This email is already used.", "warning");
+    } else {
+      const isSuccess = member.submitForm();
+      if (isSuccess) {
+        Swal.fire("Success", "Data saved to Firebase", "success");
+        router.push("/memberlist");
+      } else {
+        Swal.fire("Error", "Something went wrong while saving.", "error");
       }
+    }
+  } else {
+    //Cancel
+    console.log("Cancel");
+    Swal.fire({
+      title: "Cancel",
+      text: "Your information is canceled.",
+      icon: "error",
     });
+  }
 }
 </script>
