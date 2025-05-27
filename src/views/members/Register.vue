@@ -1,7 +1,7 @@
 <template>
   <div class="container">
     <h1 class="text-center mt-5 mb-5">Form</h1>
-    <form class="row g-3" @submit.prevent="isConfirm" ref="formRef">
+    <form class="row g-3" @submit.prevent="submitHandler" ref="formRef">
       <!-- Name & Surname -->
       <div class="col-md-6">
         <label class="form-label">Name</label>
@@ -33,11 +33,12 @@
       <div class="col-md-3">
         <label for="inputState" class="form-label">Status</label>
         <select id="inputState" class="form-select" v-model="member.isActive">
-          <option value="">Choose</option>
-          <option value="true">Online</option>
-          <option value="false">Offline</option>
+          <option :value="null">Choose</option>
+          <option :value="true">Online</option>
+          <option :value="false">Offline</option>
         </select>
       </div>
+
       <div class="row-12">
         <div class="col-md-6">
           <label class="form-label">Email</label>
@@ -52,7 +53,7 @@
 
       <!-- Button -->
       <div class="col-12 mt-5 text-end">
-        <button @click="submitHandler" type="submit" class="btn btn-primary">
+        <button type="submit" class="btn btn-primary">
           Sign up
         </button>
       </div>
@@ -61,17 +62,19 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { ref, onMounted } from "vue";
 import "@vuepic/vue-datepicker/dist/main.css";
 import { useMemberStore } from "../../stores/member";
 import Swal from "sweetalert2";
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from "vue-router";
 
 const formRef = ref(null);
-
 const member = useMemberStore();
 
 const router = useRouter();
+const route = useRoute();
+
+const id = route.query.id;
 
 function showMessage(varTitle, varText, varIcon) {
   Swal.fire({
@@ -84,50 +87,55 @@ function showMessage(varTitle, varText, varIcon) {
 function isConfirm() {
   const text = "Please complete all fields before proceeding";
   if (!member.name) {
-    showMessage("name is required", text, "warning");
-    console.log("name is required");
-    return 0;
+    showMessage("Name is required", text, "warning");
+    return false;
   }
 
   if (!member.surname) {
     showMessage("Surname is required", text, "warning");
-
-    console.log("surname is required");
-    return 0;
+    return false;
   }
 
   if (!member.birthDate) {
-    showMessage("Birth Date required", text, "warning");
-    console.log("birth date is required");
-    return 0;
+    showMessage("Birth Date is required", text, "warning");
+    return false;
   }
 
-  if (
-    member.isActive === null ||
-    member.isActive === undefined ||
-    member.isActive === ""
-  ) {
+  if (member.isActive === null || member.isActive === undefined) {
     showMessage("Status is required", text, "warning");
-    console.log("isActive is required");
     return false;
   }
 
   if (!member.email) {
     showMessage("Email is required", text, "warning");
-    console.log("email is required");
-    return 0;
+    return false;
   }
 
-  return 1; // All validations passed
+  return true; // ผ่านหมด
 }
 
-// ฟังก์ชันหลักที่ใช้เรียกเวลา submit
-async function submitHandler() {
-  if (!isConfirm()) {
-    return; // ถ้า validation ไม่ผ่าน ให้หยุดที่นี่
+// โหลดข้อมูลถ้าแก้ไข (id มีค่า)
+onMounted(async () => {
+  if (id) {
+    await member.getMember(); // โหลดสมาชิกทั้งหมด
+    const data = member.members.find((m) => m.id === id);
+    if (data) {
+      member.name = data.name;
+      member.surname = data.surname;
+      member.birthDate = data.birthDate;
+      member.isActive = data.isActive;
+      member.email = data.email;
+    } else {
+      showMessage("Error", "Member not found.", "error");
+      router.push("/memberlist");
+    }
   }
-  console.log("pass");
-  member.getAllMember;
+});
+
+// ฟังก์ชัน submit แบบเพิ่ม/แก้ไข
+async function submitHandler() {
+  if (!isConfirm()) return;
+
   const result = await Swal.fire({
     title: "Are you sure?",
     text: "You won't be able to revert this!",
@@ -139,27 +147,48 @@ async function submitHandler() {
   });
 
   if (result.isConfirmed) {
-    //Confirm
-    console.log("Ok");
-    let emailIsExist = await member.emailIsExist();
-    console.log("eiei", emailIsExist);
-    if (emailIsExist) {
-      Swal.fire("Duplicate Email", "This email is already used.", "warning");
-    } else {
-      const isSuccess = member.submitForm();
-      if (isSuccess) {
-        Swal.fire("Success", "Data saved to Firebase", "success");
-        router.push("/memberlist");
-      } else {
-        Swal.fire("Error", "Something went wrong while saving.", "error");
+    // ตรวจสอบ email ซ้ำ (ถ้าแก้ไขและ email ไม่เปลี่ยนข้ามได้)
+    let emailExists = await member.emailIsExist();
+
+    if (id) {
+      // กรณีแก้ไข ถ้า email เหมือนเดิมถือว่าไม่ซ้ำ
+      const currentMember = member.members.find((m) => m.id === id);
+      if (currentMember && currentMember.email === member.email) {
+        emailExists = false;
       }
     }
+
+    if (emailExists) {
+      Swal.fire("Duplicate Email", "This email is already used.", "warning");
+      return;
+    }
+
+    let isSuccess = false;
+
+    if (id) {
+      // แก้ไขสมาชิก
+      isSuccess = await member.updateMember(id, {
+        name: member.name,
+        surname: member.surname,
+        birthDate: member.birthDate,
+        isActive: member.isActive,
+        email: member.email,
+      });
+    } else {
+      // เพิ่มสมาชิกใหม่
+      isSuccess = await member.submitForm();
+    }
+
+    if (isSuccess) {
+      Swal.fire("Success", "Data saved successfully", "success");
+      router.push("/memberlist");
+    } else {
+      Swal.fire("Error", "Something went wrong while saving.", "error");
+    }
   } else {
-    //Cancel
-    console.log("Cancel");
     Swal.fire({
-      title: "Cancel",
-      text: "Your information is canceled.",
+      title: "Cancelled",
+      text: "Your action has been cancelled.",
       icon: "error",
     });
   }

@@ -1,12 +1,7 @@
-import { defineStore } from "pinia";
-import axios from "axios";
+import { defineStore } from 'pinia';
+import axios from 'axios';
 
-const url =
-  "https://backend-f224d-default-rtdb.asia-southeast1.firebasedatabase.app/members.json";
-
-function validateForm() {
-  console.log("validate");
-}
+const url = "https://backend-f224d-default-rtdb.asia-southeast1.firebasedatabase.app/members.json";
 
 export const useMemberStore = defineStore("member", {
   state: () => ({
@@ -14,14 +9,14 @@ export const useMemberStore = defineStore("member", {
     name: "",
     surname: "",
     birthDate: "",
-    isActive: "",
+    isActive: null,
     email: "",
     members: [],
   }),
   actions: {
     async submitForm() {
       try {
-        const qwert = {
+        const body = {
           name: this.name,
           surname: this.surname,
           birthDate: this.birthDate,
@@ -35,10 +30,12 @@ export const useMemberStore = defineStore("member", {
           },
         };
 
-        const submitRes = await axios.post(url, qwert, headers);
+        const submitRes = await axios.post(url, body, headers);
         console.log("response", submitRes);
-        this.resetForm();
 
+        await this.getMember();  // โหลดสมาชิกใหม่หลังเพิ่ม
+
+        this.resetForm();
         return true;
       } catch (err) {
         console.error("Error submitting:", err);
@@ -46,37 +43,65 @@ export const useMemberStore = defineStore("member", {
       }
     },
     async emailIsExist() {
-      //
       const checkUrl = `${url}?orderBy=%22email%22&equalTo=${encodeURIComponent(
         `"${this.email}"`
       )}`;
-      const response = await axios.get(checkUrl);
-
-      console.log(response.data);
-      if (response.data && Object.keys(response.data).length > 0) {
-        return true;
+      try {
+        const response = await axios.get(checkUrl);
+        if (response.data && Object.keys(response.data).length > 0) {
+          return true;
+        }
+        return false;
+      } catch (error) {
+        console.error("Error checking email existence:", error);
+        return false;
       }
-      return false;
     },
     resetForm() {
       this.name = "";
       this.surname = "";
       this.birthDate = "";
-      this.isActive = "";
+      this.isActive = null;
       this.email = "";
     },
     async getMember() {
       try {
         const response = await axios.get(url);
-        console.log(response);
         if (response.data) {
+          console.log(response.data)
           this.members = Object.entries(response.data).map(([id, value]) => ({
             id,
             ...value,
           }));
+        } else {
+          this.members = [];
         }
       } catch (error) {
         console.error("Error loading members:", error);
+        this.members = [];
+      }
+    },
+    async deleteMember(id) {
+      try {
+        await axios.delete(
+          `https://backend-f224d-default-rtdb.asia-southeast1.firebasedatabase.app/members/${id}.json`
+        );
+        await this.getMember();
+      } catch (error) {
+        console.error("Error deleting member:", error);
+      }
+    },
+    async updateMember(id, updatedData) {
+      try {
+        const updateUrl = `https://backend-f224d-default-rtdb.asia-southeast1.firebasedatabase.app/members/${id}.json`;
+        await axios.patch(updateUrl, updatedData, {
+          headers: { "Content-Type": "application/json" },
+        });
+        await this.getMember();
+        return true;
+      } catch (error) {
+        console.error("Error updating member:", error);
+        return false;
       }
     },
   },
@@ -85,7 +110,6 @@ export const useMemberStore = defineStore("member", {
       return state.members.map((member) => ({
         ...member,
         statusText: member.isActive ? "active" : "inactive",
-        
       }));
     },
   },
