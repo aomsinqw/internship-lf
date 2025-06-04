@@ -363,9 +363,9 @@
 import { ref, watch, onMounted, computed, nextTick } from "vue";
 import VPagination from "@hennge/vue3-pagination";
 import "@hennge/vue3-pagination/dist/vue3-pagination.css";
-import { favorites } from "../stores/favorites";
 import { store } from "../stores/store";
 import { useRoute } from "vue-router";
+
 
 const firstName = ref("");
 const lastName = ref("");

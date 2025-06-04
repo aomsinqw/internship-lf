@@ -1,323 +1,275 @@
 <template>
   <div class="container mt-5">
     <h1 class="text-center mb-5">Information</h1>
-    <form class="d-flex" @submit.prevent>
+
+    <form class="d-flex mb-4" @submit.prevent>
       <input
-        class="form-control me-2 shadow rounded-pill"
+        class="form-control me-2 rounded-pill"
         type="search"
         placeholder="Search"
-        aria-label="Search"
         v-model="search"
       />
-      <button
-        class="btn btn-outline-primary shadow rounded-pill me-md-2"
-        type="submit"
-      >
+      <button class="btn btn-outline-primary rounded-pill me-2" type="submit">
         Search
       </button>
       <button
-        class="btn btn-outline-danger shadow rounded-pill"
-        @click="goToRegister"
+        class="btn btn-outline-danger rounded-pill"
         type="button"
+        @click="goToRegister"
       >
         +
       </button>
     </form>
 
-    <div class="row mt-5 table-wrapper rounded-4 shadow overflow-hidden">
-      <table class="table table-bordered shadow mb-0">
-        <thead>
-          <tr class="text-center">
-            <th scope="col" class="rounded-start-4">Id</th>
-            <th scope="col">Name</th>
-            <th scope="col">Surname</th>
-            <th scope="col">Email</th>
-            <th scope="col">Brith Date</th>
-            <th scope="col">Status</th>
-            <th scope="col" class="rounded-start-4">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            class="text-center"
-            v-for="(member, index) in displayedMembers"
-            :key="member.id"
-          >
-            <th scope="row">{{ index + 1 }}</th>
+    <!-- จำนวนที่เลือก -->
+    <div v-if="selectedIds.length" class="mb-3 d-flex align-items-center">
+      <strong>{{ selectedIds.length }} member(s) selected. </strong>
 
-            <!-- Name -->
-            <td>
-              <input
-                v-if="editingIndex === index"
-                v-model="member.name"
-                class="form-control"
-              />
-              <span v-else v-html="highlightText(member.name, search)"></span>
-            </td>
+      <button
+        class="btn btn-danger btn-sm ms-3"
+        :disabled="deleting"
+        @click="confirmDeleteSelected"
+      >
+        <span
+          v-if="deleting"
+          class="spinner-border spinner-border-sm me-1"
+        ></span>
+        Delete Selected
+      </button>
 
-            <!-- Surname -->
-            <td>
-              <input
-                v-if="editingIndex === index"
-                v-model="member.surname"
-                class="form-control"
-              />
-              <span
-                v-else
-                v-html="highlightText(member.surname, search)"
-              ></span>
-            </td>
-
-            <!-- Email -->
-            <td>
-              <input
-                v-if="editingIndex === index"
-                v-model="member.email"
-                class="form-control"
-              />
-              <span v-else v-html="highlightText(member.email, search)"></span>
-            </td>
-
-            <!-- Birth Date -->
-            <td>
-              <input
-                v-if="editingIndex === index"
-                v-model="member.birthDate"
-                type="date"
-                class="form-control"
-              />
-              <span
-                v-else
-                v-html="highlightText(member.birthDate, search)"
-              ></span>
-            </td>
-
-            <!-- Status -->
-            <!-- แก้ไข Status select ให้ bind ถูกต้อง -->
-            <td>
-              <select
-                v-if="editingIndex === index"
-                v-model="member.statusText"
-                class="form-select"
-              >
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
-              <span
-                v-else
-                v-html="highlightText(member.statusText, search)"
-              ></span>
-            </td>
-
-            <!-- Actions -->
-            <td class="text-center">
-              <button
-                class="btn btn-sm me-2 rounded-pill shadow"
-                :class="editingIndex === index ? 'btn-success' : 'btn-warning'"
-                @click="
-                  editingIndex === index ? saveEdit(index) : startEdit(index)
-                "
-              >
-                <i
-                  class="bi"
-                  :class="
-                    editingIndex === index
-                      ? 'bi-check-circle'
-                      : 'bi-pencil-square'
-                  "
-                ></i>
-                {{ editingIndex === index ? "Save" : "Edit" }}
-              </button>
-
-              <button
-                class="btn btn-sm btn-danger rounded-pill shadow"
-                @click="confirmDelete(member.id)"
-                :disabled="editingIndex === index"
-              >
-                <i class="bi bi-trash"></i> Delete
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <button
+        class="btn btn-secondary btn-sm ms-2"
+        @click="clearSelection"
+        :disabled="deleting"
+      >
+        Clear
+      </button>
     </div>
+
+    <table class="table table-bordered rounded shadow">
+      <thead>
+        <tr class="text-center">
+          <th></th>
+          <th>Id</th>
+          <th>Name</th>
+          <th>Surname</th>
+          <th>Email</th>
+          <th>Birth Date</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+
+      <transition-group name="fade-row" tag="tbody" appear>
+        <tr
+          class="text-center"
+          v-for="(member, index) in filteredMembers"
+          :key="member.id"
+        >
+          <td>
+            <input type="checkbox" :value="member.id" v-model="selectedIds" />
+          </td>
+
+          <th>{{ index + 1 }}</th>
+
+          <td v-if="editingId === member.id">
+            <input v-model="member.name" class="form-control" />
+          </td>
+          <td v-else v-html="highlightText(member.name, search)"></td>
+
+          <td v-if="editingId === member.id">
+            <input v-model="member.surname" class="form-control" />
+          </td>
+          <td v-else v-html="highlightText(member.surname, search)"></td>
+
+          <td v-if="editingId === member.id">
+            <input v-model="member.email" class="form-control" />
+          </td>
+          <td v-else v-html="highlightText(member.email, search)"></td>
+
+          <td v-if="editingId === member.id">
+            <input
+              v-model="member.birthDate"
+              type="date"
+              class="form-control"
+            />
+          </td>
+          <td v-else v-html="highlightText(member.birthDate, search)"></td>
+
+          <td v-if="editingId === member.id">
+            <select v-model="member.isActive" class="form-select">
+              <option :value="true">Online</option>
+              <option :value="false">Offline</option>
+            </select>
+          </td>
+          <td v-else v-html="highlightText(member.statusText, search)"></td>
+
+          <td>
+            <button
+              v-if="editingId !== member.id"
+              class="btn btn-sm btn-warning me-2 rounded-pill"
+              @click="editingId = member.id"
+            >
+              <i class="bi bi-pencil-square"></i> Edit
+            </button>
+            <button
+              v-else
+              class="btn btn-sm btn-success me-2 rounded-pill"
+              @click="saveEdit(member)"
+            >
+              <i class="bi bi-check-circle"></i> Save
+            </button>
+            <button
+              class="btn btn-sm btn-danger rounded-pill"
+              @click="confirmDelete(member.id)"
+            >
+              <i class="bi bi-trash"></i> Delete
+            </button>
+          </td>
+        </tr>
+
+        <tr v-if="filteredMembers.length === 0">
+          <td colspan="8" class="text-center">No members found.</td>
+        </tr>
+      </transition-group>
+    </table>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from "vue";
+import { ref, onMounted, computed } from "vue";
+import { useRouter } from "vue-router";
+import { useToast } from "vue-toastification";
 import Swal from "sweetalert2";
+import axios from "axios";
 import { useMemberStore } from "@/stores/member";
 import { storeToRefs } from "pinia";
-import { useRouter } from "vue-router";
-import * as bootstrap from "bootstrap";
-import { useToast } from "vue-toastification";
-import axios from "axios";
 
-const memberStore = useMemberStore();
-const { members } = storeToRefs(memberStore);
 const router = useRouter();
 const toast = useToast();
-const editingIndex = ref(null);
+const memberStore = useMemberStore();
+const { members } = storeToRefs(memberStore);
 
 const search = ref("");
-const displayedMembers = ref([]);
-const deleteId = ref(null);
-const selectedMember = ref(null);
+const editingId = ref(null);
+const selectedIds = ref([]); // ✅ สำหรับเก็บ ID ที่ checkbox เลือก
+const deleting = ref(false); // ✅ สำหรับแสดง loading ตอนลบหลายรายการ
 
-onMounted(async () => {
-  await memberStore.getMember();
-  displayedMembers.value = [...memberStore.usersWithStatus]
-    .map(member => ({
-      ...member,
-      statusText: typeof member.statusText === 'string'
-        ? member.statusText
-        : member.status
-        ? 'active'
-        : 'inactive'
-    }))
-    .sort((a, b) => a.name.localeCompare(b.name)); // ⬅ เรียง A-Z ตามชื่อ
-});
-  
-watch(() => memberStore.usersWithStatus, (newUsers) => {
-  if (newUsers && newUsers.length > 0) {
-    displayedMembers.value = [...newUsers];
-    
-    // แก้ไข statusText ให้เป็น string เสมอ
-    displayedMembers.value.forEach(member => {
-      if (typeof member.statusText === 'boolean') {
-        member.statusText = member.statusText ? 'active' : 'inactive';
-      } else if (typeof member.statusText !== 'string') {
-        member.statusText = member.status ? 'active' : 'inactive';
-      }
-    });
-  }
-}, { deep: true, immediate: true });
-
-
-watch(search, (newSearch) => {
-  const keyword = newSearch.toLowerCase().trim();
-
-  const filtered = !keyword
-    ? memberStore.usersWithStatus
-    : memberStore.usersWithStatus.filter((member) =>
-        [
-          member.name,
-          member.surname,
-          member.email,
-          member.birthDate,
-          member.statusText,
-        ].some((field) => field?.toLowerCase().includes(keyword))
-      );
-
-  displayedMembers.value = filtered
-    .map(member => ({
-      ...member,
-      statusText: typeof member.statusText === 'string'
-        ? member.statusText
-        : member.status
-        ? 'active'
-        : 'inactive'
-    }))
-    .sort((a, b) => a.name.localeCompare(b.name)); // ⬅ เรียง A-Z
+onMounted(() => {
+  memberStore.getMember();
 });
 
+const filteredMembers = computed(() => {
+  const keyword = search.value.toLowerCase().trim();
+  if (!keyword) return memberStore.usersWithStatus;
 
-function highlightText(text, keyword) {
+  return memberStore.usersWithStatus.filter((m) =>
+    [m.name, m.surname, m.email, m.birthDate, m.statusText]
+      .some((field) => field?.toLowerCase().includes(keyword))
+  );
+});
+
+const highlightText = (text, keyword) => {
   if (!keyword || !text) return text;
   const regex = new RegExp(`(${keyword})`, "gi");
   return text.toString().replace(regex, `<span class="highlight">$1</span>`);
-}
+};
 
-function goToRegister() {
-  memberStore.resetForm();
-  router.push("/register");
-}
+const saveEdit = async (member) => {
+  // Validate
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!member.name || !member.surname || !member.email || !member.birthDate) {
+    toast.error("Please fill in all fields");
+    return;
+  }
+  if (!emailRegex.test(member.email)) {
+    toast.error("Invalid email format");
+    return;
+  }
+  const birthYear = new Date(member.birthDate).getFullYear();
+  const currentYear = new Date().getFullYear();
+  if (birthYear < 1900 || birthYear > currentYear) {
+    toast.error("Invalid birth year");
+    return;
+  }
 
-// function goToEdit(id) {
-//   router.push({ path: "/register", query: { id } });
-// }
+  try {
+    const url = `https://backend-f224d-default-rtdb.asia-southeast1.firebasedatabase.app/members/${member.id}.json`;
+    await axios.put(url, {
+      name: member.name,
+      surname: member.surname,
+      email: member.email,
+      birthDate: member.birthDate,
+      isActive: member.isActive,
+    });
 
-async function deleteMember() {
-  await memberStore.deleteMember(deleteId.value);
-  toast.success("Member deleted successfully");
-  await memberStore.getMember();
-  displayedMembers.value = [...memberStore.usersWithStatus];
-  deleteId.value = null;
-  bootstrap.Modal.getInstance(
-    document.getElementById("confirmDeleteModal")
-  ).hide();
-}
+    editingId.value = null;
+    await memberStore.getMember();
+    toast.success("Member updated");
+  } catch (err) {
+    console.error(err);
+    toast.error("Update failed");
+  }
+};
 
-async function confirmDelete(id) {
+const confirmDelete = async (id) => {
   const member = memberStore.usersWithStatus.find((m) => m.id === id);
-
   const result = await Swal.fire({
     title: "Are you sure?",
-    html: `Are you sure you want to delete <strong>${member.name} ${member.surname}</strong>?`,
+    html: `Delete <strong>${member.name} ${member.surname}</strong>?`,
     icon: "warning",
     showCancelButton: true,
-    confirmButtonText: "Yes, delete it!",
+    confirmButtonText: "Yes, delete",
     cancelButtonText: "Cancel",
   });
 
   if (result.isConfirmed) {
     await memberStore.deleteMember(id);
-    toast.success("Member deleted successfully");
     await memberStore.getMember();
-    displayedMembers.value = [...memberStore.usersWithStatus];
+    toast.success("Deleted successfully");
   }
-}
+};
 
-// เพิ่ม function สำหรับเริ่มแก้ไข
-function startEdit(index) {
-  editingIndex.value = index;
-  // ให้แน่ใจว่า statusText เป็น string
-  const member = displayedMembers.value[index];
-  if (typeof member.isActive !== "string") {
-    member.statusText = member.isActive ? "active" : "inactive";
+const confirmDeleteSelected = async () => {
+  if (selectedIds.value.length === 0) return;
+
+  const result = await Swal.fire({
+    title: "Are you sure?",
+    html: `Delete <strong>${selectedIds.value.length}</strong> selected member(s)?`,
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonText: "Yes, delete",
+    cancelButtonText: "Cancel",
+  });
+
+  if (result.isConfirmed) {
+    try {
+      deleting.value = true;
+      for (const id of selectedIds.value) {
+        await memberStore.deleteMember(id);
+      }
+      await memberStore.getMember();
+      toast.success("Selected members deleted");
+      selectedIds.value = [];
+    } catch (err) {
+      console.error(err);
+      toast.error("Deletion failed");
+    } finally {
+      deleting.value = false;
+    }
   }
-  console.log("Editing member:", member);
-}
+};
 
-async function saveEdit(index) {
-  const member = displayedMembers.value[index];
+const clearSelection = () => {
+  selectedIds.value = [];
+};
 
-  console.log("Saving member with statusText:", member.statusText);
-
-  const updateUrl = `https://backend-f224d-default-rtdb.asia-southeast1.firebasedatabase.app/members/${member.id}.json`;
-
-  const payload = {
-    name: member.name,
-    surname: member.surname,
-    email: member.email,
-    birthDate: member.birthDate,
-    statusText: member.statusText, // ใช้ statusText ที่เลือก
-    isActive: member.statusText === "active", // แปลงเป็น boolean
-  };
-
-  try {
-    const response = await axios.put(updateUrl, payload);
-    console.log("API Response:", response.data);
-    
-    toast.success("Member updated successfully");
-    editingIndex.value = null;
-    
-    // **แก้ไขตรงนี้** - อัปเดต local data ก่อน แล้วค่อย refresh
-    // อัปเดตข้อมูลใน displayedMembers ให้ตรงกับที่บันทึก
-    displayedMembers.value[index] = {
-      ...member,
-      statusText: member.statusText,
-      status: member.statusText === "active"
-    };
-    
-    
-  } catch (error) {
-    console.error("Update failed", error);
-    toast.error("Failed to update member");
-  }
-}
+const goToRegister = () => {
+  memberStore.resetForm?.(); 
+  router.push("/register");
+};
 </script>
+
 
 <style>
 @keyframes flash-highlight {
@@ -329,24 +281,19 @@ async function saveEdit(index) {
     background-color: rgb(0, 255, 208);
   }
 }
-
 .highlight {
   background-color: yellow;
   font-weight: bold;
   animation: flash-highlight 0.8s ease-in-out;
 }
-
-.custom-rounded-table {
-  border-radius: 1rem;
-  overflow: hidden; /* สำคัญ! เพื่อให้หัวตารางก็โค้งด้วย */
+.fade-row-enter-active,
+.fade-row-leave-active {
+  transition: all 0.5s ease;
 }
 
-.table-wrapper {
-  border: 1px solid #dee2e6; /* ถ้าต้องการเส้นรอบนอก */
-}
-
-.table-wrapper {
-  border-top-left-radius: 2rem;
-  border-top-right-radius: 2rem;
+.fade-row-enter-from,
+.fade-row-leave-to {
+  opacity: 0;
+  transform: translateY(10px);
 }
 </style>
